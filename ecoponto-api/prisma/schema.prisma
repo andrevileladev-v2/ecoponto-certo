@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum TipoUsuario {
+  PF        // Pessoa física
+  EMPRESA   // Cooperativa / empresa coletora
+}
+
+enum RoleUsuario {
+  USER
+  ADMIN
+}
+
+enum StatusUsuario {
+  ATIVO
+  BLOQUEADO
+}
+
+enum StatusPonto {
+  ATIVO
+  INATIVO
+  PENDENTE_VERIFICACAO
+}
+
+enum StatusResiduo {
+  APROVADO
+  PENDENTE
+  REJEITADO
+}
+
+enum StatusItemPonto {
+  CONFIRMADO   // comunidade confirma que aceita
+  CONTESTADO   // comunidade contesta
+  PENDENTE     // ainda sem votos suficientes
+}
+
+enum TipoDenuncia {
+  INFORMACAO_INCORRETA
+  COMPORTAMENTO_INADEQUADO
+  SPAM
+  OUTRO
+}
+
+enum StatusDenuncia {
+  PENDENTE
+  RESOLVIDO
+  IGNORADO
+}
+
+enum StatusMelhoria {
+  PENDENTE
+  PRIORIZADO
+  ARQUIVADO
+}
+
+enum TipoMensagem {
+  TEXTO
+  CONFIRMACAO   // "Fui hoje, está funcionando"
+  DUVIDA        // "Aceita tetra pak aqui?"
+  AVISO         // "Fechado hoje"
+}
+
+// ─── Usuários ────────────────────────────────────────────────────────────────
+
+model Usuario {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  nome         String
+  tipo         TipoUsuario   @default(PF)
+  role         RoleUsuario   @default(USER)
+  status       StatusUsuario @default(ATIVO)
+  avatar_url   String?
+  cidade       String?
+  criado_em    DateTime      @default(now())
+  atualizado_em DateTime     @updatedAt
+
+  // Empresa (preenchido só se tipo = EMPRESA)
+  empresa      Empresa?
+
+  // Relações
+  pontos_criados    Ponto[]         @relation("PontoCriador")
+  entregas          Entrega[]
+  salvos            PontoSalvo[]
+  mensagens         Mensagem[]
+  confirmacoes      ConfirmacaoAtividade[]
+  votos_residuo     VotoResiduo[]
+  denuncias_feitas  Denuncia[]      @relation("DenunciaAutor")
+  denuncias_sofridas Denuncia[]     @relation("DenunciaAlvo")
+  melhorias         Melhoria[]
+  votos_melhoria    VotoMelhoria[]
+  residuos_solicitados Residuo[]
+
+  @@map("usuarios")
+}
+
+model Empresa {
+  id            String   @id @default(cuid())
+  usuario_id    String   @unique
+  razao_social  String
+  cnpj          String?  @unique
+  whatsapp      String?
+  tipo_atuacao  String   // "Cooperativa", "Empresa privada", "Prefeitura", etc.
+  verificado    Boolean  @default(false)
+  criado_em     DateTime @default(now())
+
+  usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("empresas")
+}
+
+// ─── Pontos de coleta ────────────────────────────────────────────────────────
+
+model Ponto {
+  id            String      @id @default(cuid())
+  nome          String
+  descricao     String?
+  endereco      String
+  cidade        String
+  estado        String      @default("ES")
+  lat           Float
+  lng           Float
+  // Coluna PostGIS gerada automaticamente via trigger (opcional)
+  // geom        Unsupported("geography(Point, 4326)")?
+
+  telefone      String?
+  site          String?
+  horario       String?     // ex: "Seg–Sex 8h–17h"
+
+  status        StatusPonto @default(ATIVO)
+  confiabilidade Float      @default(0.5)  // 0.0–1.0 calculado
+
+  criado_por_id String
+  criado_em     DateTime    @default(now())
+  atualizado_em DateTime    @updatedAt
+
+  criado_por    Usuario     @relation("PontoCriador", fields: [criado_por_id], references: [id])
+
+  // Relações
+  residuos         PontoResiduo[]
+  confirmacoes     ConfirmacaoAtividade[]
+  mensagens        Mensagem[]
+  entregas         Entrega[]
+  salvos           PontoSalvo[]
+  denuncias        Denuncia[]
+
+  @@index([lat, lng])
+  @@map("pontos")
+}
+
+// ─── Tipos de resíduos ───────────────────────────────────────────────────────
+
+model Residuo {
+  id             String        @id @default(cuid())
+  nome           String        @unique
+  cor            String        // hex: "#2563EB"
+  icone          String?       // nome do ícone lucide
+  status         StatusResiduo @default(APROVADO)
+  solicitado_por_id String?
+  criado_em      DateTime      @default(now())
+
+  solicitado_por Usuario?      @relation(fields: [solicitado_por_id], references: [id])
+  pontos         PontoResiduo[]
+  entregas       Entrega[]
+
+  @@map("residuos")
+}
+
+// ─── Ponto ↔ Resíduo (com votação da comunidade) ────────────────────────────
+
+model PontoResiduo {
+  id            String          @id @default(cuid())
+  ponto_id      String
+  residuo_id    String
+  status        StatusItemPonto @default(PENDENTE)
+  confirmacoes  Int             @default(0)
+  contestacoes  Int             @default(0)
+  criado_em     DateTime        @default(now())
+  atualizado_em DateTime        @updatedAt
+
+  ponto         Ponto           @relation(fields: [ponto_id], references: [id], onDelete: Cascade)
+  residuo       Residuo         @relation(fields: [residuo_id], references: [id])
+  votos         VotoResiduo[]
+
+  @@unique([ponto_id, residuo_id])
+  @@map("ponto_residuos")
+}
+
+model VotoResiduo {
+  id               String       @id @default(cuid())
+  ponto_residuo_id String
+  usuario_id       String
+  aceita           Boolean      // true = confirma, false = contesta
+  criado_em        DateTime     @default(now())
+
+  ponto_residuo    PontoResiduo @relation(fields: [ponto_residuo_id], references: [id], onDelete: Cascade)
+  usuario          Usuario      @relation(fields: [usuario_id], references: [id])
+
+  @@unique([ponto_residuo_id, usuario_id])
+  @@map("votos_residuo")
+}
+
+// ─── Confirmação de atividade do ponto ───────────────────────────────────────
+
+model ConfirmacaoAtividade {
+  id          String   @id @default(cuid())
+  ponto_id    String
+  usuario_id  String
+  funcionando Boolean  // true = ativo, false = inativo/fechado
+  observacao  String?
+  criado_em   DateTime @default(now())
+
+  ponto       Ponto    @relation(fields: [ponto_id], references: [id], onDelete: Cascade)
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+
+  @@map("confirmacoes_atividade")
+}
+
+// ─── Entregas do usuário ─────────────────────────────────────────────────────
+
+model Entrega {
+  id          String   @id @default(cuid())
+  usuario_id  String
+  ponto_id    String
+  residuo_id  String
+  quantidade  Float?
+  unidade     String?  // "kg", "L", "unidade"
+  criado_em   DateTime @default(now())
+
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+  ponto       Ponto    @relation(fields: [ponto_id], references: [id])
+  residuo     Residuo  @relation(fields: [residuo_id], references: [id])
+
+  @@map("entregas")
+}
+
+// ─── Pontos salvos ───────────────────────────────────────────────────────────
+
+model PontoSalvo {
+  usuario_id  String
+  ponto_id    String
+  criado_em   DateTime @default(now())
+
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+  ponto       Ponto    @relation(fields: [ponto_id], references: [id], onDelete: Cascade)
+
+  @@id([usuario_id, ponto_id])
+  @@map("pontos_salvos")
+}
+
+// ─── Chat do ponto ───────────────────────────────────────────────────────────
+
+model Mensagem {
+  id          String       @id @default(cuid())
+  ponto_id    String
+  usuario_id  String
+  tipo        TipoMensagem @default(TEXTO)
+  conteudo    String
+  criado_em   DateTime     @default(now())
+
+  ponto       Ponto        @relation(fields: [ponto_id], references: [id], onDelete: Cascade)
+  usuario     Usuario      @relation(fields: [usuario_id], references: [id])
+  denuncias   Denuncia[]
+
+  @@map("mensagens")
+}
+
+// ─── Denúncias ───────────────────────────────────────────────────────────────
+
+model Denuncia {
+  id                String         @id @default(cuid())
+  tipo              TipoDenuncia
+  status            StatusDenuncia @default(PENDENTE)
+  descricao         String?
+
+  denunciante_id    String
+  alvo_usuario_id   String?        // quem foi denunciado (opcional)
+  alvo_mensagem_id  String?        // mensagem denunciada (opcional)
+  alvo_ponto_id     String?        // ponto denunciado (opcional)
+
+  criado_em         DateTime       @default(now())
+  resolvido_em      DateTime?
+
+  denunciante       Usuario        @relation("DenunciaAutor", fields: [denunciante_id], references: [id])
+  alvo_usuario      Usuario?       @relation("DenunciaAlvo", fields: [alvo_usuario_id], references: [id])
+  alvo_mensagem     Mensagem?      @relation(fields: [alvo_mensagem_id], references: [id])
+  alvo_ponto        Ponto?         @relation(fields: [alvo_ponto_id], references: [id])
+
+  @@map("denuncias")
+}
+
+// ─── Melhorias ───────────────────────────────────────────────────────────────
+
+model Melhoria {
+  id          String         @id @default(cuid())
+  titulo      String
+  descricao   String?
+  status      StatusMelhoria @default(PENDENTE)
+  autor_id    String
+  criado_em   DateTime       @default(now())
+
+  autor       Usuario        @relation(fields: [autor_id], references: [id])
+  votos       VotoMelhoria[]
+
+  @@map("melhorias")
+}
+
+model VotoMelhoria {
+  usuario_id   String
+  melhoria_id  String
+  criado_em    DateTime @default(now())
+
+  usuario      Usuario  @relation(fields: [usuario_id], references: [id])
+  melhoria     Melhoria @relation(fields: [melhoria_id], references: [id], onDelete: Cascade)
+
+  @@id([usuario_id, melhoria_id])
+  @@map("votos_melhoria")
+}
