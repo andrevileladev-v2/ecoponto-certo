@@ -9,6 +9,7 @@ async function handler(request: NextRequest, { params }: { params: Promise<{ pat
   const url = `${BACKEND}/${pathStr}${search}`
 
   const authHeader = request.headers.get('authorization') ?? ''
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
 
   const res = await fetch(url, {
     method: request.method,
@@ -16,7 +17,7 @@ async function handler(request: NextRequest, { params }: { params: Promise<{ pat
       'Content-Type': 'application/json',
       ...(authHeader ? { authorization: authHeader } : {}),
     },
-    body: isBody ? await request.text() : undefined,
+    body: hasBody ? await request.text() : undefined,
   })
 
   const data = await res.json().catch(() => null)

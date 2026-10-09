@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as maplibregl from "maplibre-gl"
 import 'maplibre-gl/dist/maplibre-gl.css'
 import Link from 'next/link'
@@ -55,7 +55,7 @@ export default function MapClient() {
   const [residuoOpts, setResiduoOpts] = useState<ResiduoOpt[]>([])
   const [loading, setLoading] = useState(false)
   const [userLoc, setUserLoc] = useState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
-  const [userLocGranted, setUserLocGranted] = useState(false)
+  const [userLocGranted] = useState(false)
 
   // Get user location once
   useEffect(() => {
@@ -147,19 +147,19 @@ export default function MapClient() {
   return (
     <div className="flex h-full w-full">
       {/* Sidebar */}
-      <aside className="w-80 shrink-0 flex-col bg-white border-r border-[#D4DAD4] overflow-hidden hidden md:flex">
-        <header className="p-4 border-b border-[#D4DAD4]">
+      <aside className="w-80 shrink-0 flex-col bg-white border-r border-border overflow-hidden hidden md:flex">
+        <header className="p-4 border-b border-border">
           <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A9480]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-3" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar bairro ou ponto..."
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-[#D4DAD4] text-sm bg-[#F7F8F7] focus:outline-none focus:ring-2 focus:ring-[#0D9858]"
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-border text-sm bg-raised focus:outline-none focus:ring-2 focus:ring-accent"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-3 h-3 text-[#7A9480]" />
+                <X className="w-3 h-3 text-fg-3" />
               </button>
             )}
           </div>
@@ -170,7 +170,7 @@ export default function MapClient() {
                 onClick={() => toggleFiltro(r.id)}
                 style={filtros.includes(r.id) ? { backgroundColor: r.cor, borderColor: r.cor, color: 'white' } : {}}
                 className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                  filtros.includes(r.id) ? '' : 'text-[#7A9480] border-[#D4DAD4] bg-white hover:bg-[#F7F8F7]'
+                  filtros.includes(r.id) ? '' : 'text-fg-3 border-border bg-white hover:bg-raised'
                 }`}
               >
                 {r.nome}
@@ -179,7 +179,7 @@ export default function MapClient() {
           </div>
         </header>
 
-        <p className="px-4 py-2 text-xs text-[#7A9480] border-b border-[#D4DAD4]">
+        <p className="px-4 py-2 text-xs text-fg-3 border-b border-border">
           {loading ? 'Buscando...' : `${pontos.length} pontos`}
         </p>
         <div className="flex-1 overflow-y-auto">
@@ -187,12 +187,12 @@ export default function MapClient() {
             <button
               key={p.id}
               onClick={() => setSelected(p)}
-              className={`w-full text-left flex items-stretch border-b border-[#D4DAD4] hover:bg-[#F7F8F7] transition-colors ${selected?.id === p.id ? 'bg-[#E8F5ED]' : ''}`}
+              className={`w-full text-left flex items-stretch border-b border-border hover:bg-raised transition-colors ${selected?.id === p.id ? 'bg-acc-bg' : ''}`}
             >
               <div className="w-1 shrink-0" style={{ backgroundColor: p.residuos[0]?.residuo.cor ?? '#0D9858' }} />
               <div className="px-3 py-3 flex-1 min-w-0">
                 <p className="text-sm font-medium text-[#1A2E1A] truncate">{p.nome}</p>
-                <p className="text-xs text-[#7A9480] truncate">{p.endereco}, {p.cidade}</p>
+                <p className="text-xs text-fg-3 truncate">{p.endereco}, {p.cidade}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {p.residuos.slice(0, 3).map(r => (
                     <span key={r.id} className="text-[10px] px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: r.residuo.cor }}>
@@ -204,7 +204,7 @@ export default function MapClient() {
             </button>
           ))}
           {!loading && pontos.length === 0 && (
-            <p className="text-sm text-[#7A9480] text-center py-8 px-4">Nenhum ponto encontrado.</p>
+            <p className="text-sm text-fg-3 text-center py-8 px-4">Nenhum ponto encontrado.</p>
           )}
         </div>
       </aside>
@@ -218,9 +218,9 @@ export default function MapClient() {
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-semibold text-[#1A2E1A] truncate">{selected.nome}</p>
-                <p className="text-xs text-[#7A9480]">{selected.endereco}, {selected.cidade}</p>
+                <p className="text-xs text-fg-3">{selected.endereco}, {selected.cidade}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-[#7A9480] hover:text-[#1A2E1A] shrink-0">
+              <button onClick={() => setSelected(null)} className="text-fg-3 hover:text-[#1A2E1A] shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -234,13 +234,13 @@ export default function MapClient() {
             <div className="flex gap-2">
               <Link
                 href={`/ponto/${selected.id}`}
-                className="flex-1 text-center text-sm bg-[#0D9858] text-white py-2 rounded-lg hover:bg-[#0B7A47] transition-colors"
+                className="flex-1 text-center text-sm bg-accent text-white py-2 rounded-lg hover:bg-[#0B7A47] transition-colors"
               >
                 Ver detalhes
               </Link>
               <button
                 onClick={() => navigate(selected)}
-                className="px-3 py-2 border border-[#D4DAD4] rounded-lg text-[#7A9480] hover:bg-[#F7F8F7] transition-colors"
+                className="px-3 py-2 border border-border rounded-lg text-fg-3 hover:bg-raised transition-colors"
                 title="Como chegar"
               >
                 <MapPin className="w-4 h-4" />

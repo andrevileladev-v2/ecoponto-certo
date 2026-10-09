@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${spaceGrotesk.variable} h-full`}>
-      <body className="h-full bg-[#EFF2EF] text-[#0F1C12] font-sans antialiased">
+      <body className="h-full bg-bg text-fg font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

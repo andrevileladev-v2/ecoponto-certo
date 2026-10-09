@@ -8,7 +8,7 @@ interface AppShellProps {
 
 export default function AppShell({ children, fullWidth = false }: AppShellProps) {
   return (
-    <div className="min-h-screen flex flex-col bg-[#EFF2EF]">
+    <div className="min-h-screen flex flex-col bg-bg">
       <Header />
       <main
         className={`flex-1 ${

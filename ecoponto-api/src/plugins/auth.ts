@@ -6,7 +6,11 @@ declare module 'fastify' {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>
     authenticateAdmin: (req: FastifyRequest, reply: FastifyReply) => Promise<void>
   }
-  interface FastifyRequest {
+}
+
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: { sub: string; role: string; tipo: string }
     user: { sub: string; role: string; tipo: string }
   }
 }
@@ -23,7 +27,7 @@ export default fp(async function authPlugin(app: FastifyInstance) {
   app.decorate('authenticateAdmin', async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       await req.jwtVerify()
-      if ((req.user as any).role !== 'ADMIN') {
+      if (req.user.role !== 'ADMIN') {
         reply.status(403).send({ error: 'Acesso negado' })
       }
     } catch {

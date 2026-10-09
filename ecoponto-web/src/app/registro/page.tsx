@@ -1,22 +1,21 @@
 'use client'
 import Link from "next/link";
-import { Recycle } from "lucide-react";
 import { useState } from "react";
 
 export default function RegistroPage() {
   const [tipo, setTipo] = useState<'fp' | 'emp'>('fp');
 
   return (
-    <main className="min-h-screen bg-[#EFF2EF] flex items-center justify-center px-4 py-10">
+    <main className="min-h-screen bg-bg flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm flex flex-col gap-5">
 
         <div className="flex flex-col gap-1">
-          <div className="text-sm text-[#7A9480]">
+          <div className="text-sm text-fg-3">
             ←{" "}
-            <Link href="/login" className="text-[#0D9858]">Voltar</Link>
+            <Link href="/login" className="text-accent">Voltar</Link>
           </div>
-          <h2 className="text-xl font-semibold text-[#0F1C12]">Criar conta</h2>
-          <p className="text-sm text-[#7A9480]">Como você vai usar o Ecoponto Certo?</p>
+          <h2 className="text-xl font-semibold text-fg">Criar conta</h2>
+          <p className="text-sm text-fg-3">Como você vai usar o Ecoponto Certo?</p>
         </div>
 
         {/* Seleção de tipo */}
@@ -25,25 +24,25 @@ export default function RegistroPage() {
             onClick={() => setTipo('fp')}
             className={`rounded-xl border-2 p-4 text-left transition-all ${
               tipo === 'fp'
-                ? 'border-[#0D9858] bg-[#E8F5ED]'
-                : 'border-[#D4DAD4] bg-white hover:bg-[#F7F8F7]'
+                ? 'border-accent bg-acc-bg'
+                : 'border-border bg-white hover:bg-raised'
             }`}
           >
             <div className="text-2xl mb-2">👤</div>
-            <div className="text-sm font-semibold text-[#0F1C12]">Pessoa Física</div>
-            <div className="text-xs text-[#7A9480] mt-1">Quero reciclar e encontrar pontos de coleta</div>
+            <div className="text-sm font-semibold text-fg">Pessoa Física</div>
+            <div className="text-xs text-fg-3 mt-1">Quero reciclar e encontrar pontos de coleta</div>
           </button>
           <button
             onClick={() => setTipo('emp')}
             className={`rounded-xl border-2 p-4 text-left transition-all ${
               tipo === 'emp'
-                ? 'border-[#0D9858] bg-[#E8F5ED]'
-                : 'border-[#D4DAD4] bg-white hover:bg-[#F7F8F7]'
+                ? 'border-accent bg-acc-bg'
+                : 'border-border bg-white hover:bg-raised'
             }`}
           >
             <div className="text-2xl mb-2">🏢</div>
-            <div className="text-sm font-semibold text-[#0F1C12]">Empresa / Org.</div>
-            <div className="text-xs text-[#7A9480] mt-1">Sou ponto de coleta ou compro recicláveis</div>
+            <div className="text-sm font-semibold text-fg">Empresa / Org.</div>
+            <div className="text-xs text-fg-3 mt-1">Sou ponto de coleta ou compro recicláveis</div>
           </button>
         </div>
 
@@ -57,15 +56,15 @@ export default function RegistroPage() {
               { label: "Cidade", type: "text", placeholder: "Guarapari, ES" },
             ].map(({ label, type, placeholder }) => (
               <div key={label} className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-[#3D5444]">{label}</label>
+                <label className="text-xs font-semibold text-fg-2">{label}</label>
                 <input
                   type={type}
                   placeholder={placeholder}
-                  className="w-full bg-[#F7F8F7] border border-[#D4DAD4] rounded-lg px-3 py-2.5 text-sm text-[#0F1C12] placeholder:text-[#7A9480] focus:outline-none focus:ring-2 focus:ring-[#0D9858]"
+                  className="w-full bg-raised border border-border rounded-lg px-3 py-2.5 text-sm text-fg placeholder:text-fg-3 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
             ))}
-            <button className="w-full bg-[#0D9858] hover:bg-[#0b8048] text-white font-semibold py-2.5 rounded-lg transition-colors">
+            <button className="w-full bg-accent hover:bg-[#0b8048] text-white font-semibold py-2.5 rounded-lg transition-colors">
               Criar conta
             </button>
           </div>
@@ -81,17 +80,17 @@ export default function RegistroPage() {
               { label: "WhatsApp / Telefone", type: "tel", placeholder: "(27) 99999-9999" },
             ].map(({ label, type, placeholder }) => (
               <div key={label} className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-[#3D5444]">{label}</label>
+                <label className="text-xs font-semibold text-fg-2">{label}</label>
                 <input
                   type={type}
                   placeholder={placeholder}
-                  className="w-full bg-[#F7F8F7] border border-[#D4DAD4] rounded-lg px-3 py-2.5 text-sm text-[#0F1C12] placeholder:text-[#7A9480] focus:outline-none focus:ring-2 focus:ring-[#0D9858]"
+                  className="w-full bg-raised border border-border rounded-lg px-3 py-2.5 text-sm text-fg placeholder:text-fg-3 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
             ))}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-[#3D5444]">Tipo de atuação</label>
-              <select className="w-full bg-[#F7F8F7] border border-[#D4DAD4] rounded-lg px-3 py-2.5 text-sm text-[#0F1C12] focus:outline-none focus:ring-2 focus:ring-[#0D9858]">
+              <label className="text-xs font-semibold text-fg-2">Tipo de atuação</label>
+              <select className="w-full bg-raised border border-border rounded-lg px-3 py-2.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent">
                 <option>Cooperativa de reciclagem</option>
                 <option>Ecoponto / Ponto de coleta</option>
                 <option>Empresa compradora de recicláveis</option>
@@ -100,23 +99,23 @@ export default function RegistroPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-[#3D5444]">Cidade</label>
+              <label className="text-xs font-semibold text-fg-2">Cidade</label>
               <input
                 type="text"
                 placeholder="Guarapari, ES"
-                className="w-full bg-[#F7F8F7] border border-[#D4DAD4] rounded-lg px-3 py-2.5 text-sm text-[#0F1C12] placeholder:text-[#7A9480] focus:outline-none focus:ring-2 focus:ring-[#0D9858]"
+                className="w-full bg-raised border border-border rounded-lg px-3 py-2.5 text-sm text-fg placeholder:text-fg-3 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <button className="w-full bg-[#0D9858] hover:bg-[#0b8048] text-white font-semibold py-2.5 rounded-lg transition-colors">
+            <button className="w-full bg-accent hover:bg-[#0b8048] text-white font-semibold py-2.5 rounded-lg transition-colors">
               Criar conta empresarial
             </button>
-            <p className="text-xs text-center text-[#7A9480]">Conta empresarial passa por verificação em até 24h</p>
+            <p className="text-xs text-center text-fg-3">Conta empresarial passa por verificação em até 24h</p>
           </div>
         )}
 
-        <p className="text-sm text-center text-[#7A9480]">
+        <p className="text-sm text-center text-fg-3">
           Já tem conta?{" "}
-          <Link href="/login" className="text-[#0D9858] font-semibold hover:underline">Entrar</Link>
+          <Link href="/login" className="text-accent font-semibold hover:underline">Entrar</Link>
         </p>
       </div>
     </main>

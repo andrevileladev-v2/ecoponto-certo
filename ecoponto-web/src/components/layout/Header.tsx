@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Map, LayoutDashboard, User, Info } from 'lucide-react'
+import { Map, LayoutDashboard, Info } from 'lucide-react'
 
 const NAV = [
   { href: '/', label: 'Mapa', icon: Map },
@@ -14,9 +14,9 @@ export default function Header() {
   const path = usePathname()
 
   return (
-    <header className="bg-white border-b border-[#D4DAD4] px-4 py-3 flex items-center justify-between gap-4">
-      <Link href="/" className="flex items-center gap-2 font-semibold text-[#0F1C12]">
-        <span className="text-[#0D9858] text-xl">♻</span>
+    <header className="bg-white border-b border-border px-4 py-3 flex items-center justify-between gap-4">
+      <Link href="/" className="flex items-center gap-2 font-semibold text-fg">
+        <span className="text-accent text-xl">♻</span>
         <span>Ecoponto Certo</span>
       </Link>
 
@@ -27,8 +27,8 @@ export default function Header() {
             href={href}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               path == (href)
-                ? 'bg-[#E8F5ED] text-[#0D9858]'
-                : 'text-[#3D5444] hover:bg-[#F7F8F7]'
+                ? 'bg-acc-bg text-accent'
+                : 'text-fg-2 hover:bg-raised'
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -39,7 +39,7 @@ export default function Header() {
 
       <Link
         href="/perfil"
-        className="w-8 h-8 rounded-full bg-[#E8F5ED] flex items-center justify-center text-[#0D9858] font-semibold text-sm"
+        className="w-8 h-8 rounded-full bg-acc-bg flex items-center justify-center text-accent font-semibold text-sm"
       >
         A
       </Link>

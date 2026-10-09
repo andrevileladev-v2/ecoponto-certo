@@ -37,12 +37,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('eco_token')
-    if (!token) { setLoading(false); return }
-    api.get<Usuario>('/auth/me')
-      .then(setUser)
+    let isMounted = true
+
+    Promise.resolve()
+      .then(() => {
+        const token = localStorage.getItem('eco_token')
+        return token ? api.get<Usuario>('/auth/me') : null
+      })
+      .then(usuario => {
+        if (isMounted && usuario) setUser(usuario)
+      })
       .catch(() => clearToken())
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (isMounted) setLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   async function login(email: string, senha: string) {
