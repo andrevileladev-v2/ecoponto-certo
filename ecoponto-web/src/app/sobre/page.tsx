@@ -89,7 +89,7 @@ export default function SobrePage() {
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            href="/mapa"
+            href="/"
             className="flex-1 bg-[#0D9858] hover:bg-[#0b8048] text-white text-sm font-medium py-2.5 rounded-lg text-center transition-colors"
           >
             Ver o mapa

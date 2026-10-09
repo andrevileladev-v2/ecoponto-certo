@@ -1,4 +1,5 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333/api'
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333').replace(/\/+$/, '')
+const BASE = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`
 
 function getToken() {
   if (typeof window === 'undefined') return null
@@ -15,7 +16,15 @@ export function clearToken() {
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
-  const res = await fetch(`${BASE}${path}`, {
+
+  const cleanBase = BASE.replace(/\/$/, '')
+  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  const url = `${cleanBase}${cleanPath}`
+
+  // Log para ver no console do navegador/servidor a URL real sendo chamada
+  console.log(`[API Request] ${init.method ?? 'GET'} -> ${url}`)
+
+  const res = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -23,10 +32,22 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       ...init.headers,
     },
   })
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw Object.assign(new Error(body.error ?? 'Erro inesperado'), { status: res.status })
+    
+    // Imprime detalhes do erro no console para fácil identificação
+    console.error(`[API Error ${res.status}]`, {
+      url,
+      status: res.status,
+      body,
+    })
+
+    // Captura tanto body.message quanto body.error (comuns em Fastify/Express)
+    const errorMessage = body.message ?? body.error ?? `Erro HTTP ${res.status}`
+    throw Object.assign(new Error(errorMessage), { status: res.status, data: body })
   }
+
   return res.json() as Promise<T>
 }
 

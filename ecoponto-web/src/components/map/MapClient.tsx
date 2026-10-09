@@ -132,16 +132,22 @@ export default function MapClient() {
 
   const navigate = (p: Ponto) => {
     const dest = `${p.lat},${p.lng}`
-    navigator.geolocation?.getCurrentPosition(
-      pos => window.open(`https://www.google.com/maps/dir/${pos.coords.latitude},${pos.coords.longitude}/${dest}`, '_blank'),
-      () => window.open(`https://www.google.com/maps?q=${dest}`, '_blank')
-    ) ?? window.open(`https://www.google.com/maps?q=${dest}`, '_blank')
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => window.open(`https://www.google.com/maps/dir/${pos.coords.latitude},${pos.coords.longitude}/${dest}`, '_blank'),
+        () => window.open(`https://www.google.com/maps?q=${dest}`, '_blank')
+      )
+      return
+    }
+
+    window.open(`https://www.google.com/maps?q=${dest}`, '_blank')
   }
 
   return (
     <div className="flex h-full w-full">
       {/* Sidebar */}
-      <aside className="w-80 flex-shrink-0 flex-col bg-white border-r border-[#D4DAD4] overflow-hidden hidden md:flex">
+      <aside className="w-80 shrink-0 flex-col bg-white border-r border-[#D4DAD4] overflow-hidden hidden md:flex">
         <header className="p-4 border-b border-[#D4DAD4]">
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A9480]" />
@@ -183,7 +189,7 @@ export default function MapClient() {
               onClick={() => setSelected(p)}
               className={`w-full text-left flex items-stretch border-b border-[#D4DAD4] hover:bg-[#F7F8F7] transition-colors ${selected?.id === p.id ? 'bg-[#E8F5ED]' : ''}`}
             >
-              <div className="w-1 flex-shrink-0" style={{ backgroundColor: p.residuos[0]?.residuo.cor ?? '#0D9858' }} />
+              <div className="w-1 shrink-0" style={{ backgroundColor: p.residuos[0]?.residuo.cor ?? '#0D9858' }} />
               <div className="px-3 py-3 flex-1 min-w-0">
                 <p className="text-sm font-medium text-[#1A2E1A] truncate">{p.nome}</p>
                 <p className="text-xs text-[#7A9480] truncate">{p.endereco}, {p.cidade}</p>
@@ -214,7 +220,7 @@ export default function MapClient() {
                 <p className="font-semibold text-[#1A2E1A] truncate">{selected.nome}</p>
                 <p className="text-xs text-[#7A9480]">{selected.endereco}, {selected.cidade}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-[#7A9480] hover:text-[#1A2E1A] flex-shrink-0">
+              <button onClick={() => setSelected(null)} className="text-[#7A9480] hover:text-[#1A2E1A] shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>

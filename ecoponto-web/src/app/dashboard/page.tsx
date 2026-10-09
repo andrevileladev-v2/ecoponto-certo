@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    request<StatsData>("/api/stats")
+    request<StatsData>("/stats")
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false))

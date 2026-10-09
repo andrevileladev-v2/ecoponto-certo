@@ -30,18 +30,44 @@ export default function PontoPage() {
   const cor = ponto ? relCor(ponto.confiabilidade) : '#DC2626';
 
   useEffect(() => {
-    api.get('/pontos/' + id).then((p: any) => {
-      if (p) {
-        setPonto(p);
-        console.log('residuos:', JSON.stringify(p.residuos))
-        setItens(p.residuos?.map((r: any) => ({
-          nome: r.nome ?? r,
-          cor: RES_COR[r.tipo ?? r] ?? '#0D9858',
-          aceita: true, votos: 0, conf: 0,
-        })) ?? []);
+  let isMounted = true
+
+  async function loadPonto() {
+    try {
+      // Faz a busca usando o ID real recebido via props/params
+      const p = await api.get<any>(`/pontos/${id}`)
+      
+      if (p && isMounted) {
+        setPonto(p)
+
+        const itensMapeados = p.residuos?.map((item: any) => {
+          const residuoData = item.residuo
+          const nome = residuoData?.nome ?? 'Resíduo'
+          const tipo = residuoData?.tipo ?? nome.toLowerCase()
+          return {
+            nome,
+            cor: residuoData?.cor ?? RES_COR[tipo] ?? '#0D9858',
+            aceita: true,
+            votos: item.confirmacoes ?? 0,
+            conf: item.confirmacoes ?? 0,
+          }
+        }) ?? []
+
+        setItens(itensMapeados)
       }
-    });
-  }, [id]);
+    } catch (err) {
+      console.error('Erro ao carregar o ponto:', err)
+    }
+  }
+
+  if (id) {
+    loadPonto()
+  }
+
+  return () => {
+    isMounted = false // Evita setPonto em componente desmontado
+  }
+}, [id])
 
   function votar(i: number, sim: boolean) {
     setItens(prev => prev.map((item, idx) => {
@@ -63,7 +89,7 @@ export default function PontoPage() {
     <AppShell>
       <div className="max-w-lg mx-auto flex flex-col gap-4">
 
-        <Link href="/mapa" className="flex items-center gap-1.5 text-sm text-[#7A9480] hover:text-[#0D9858] transition-colors w-fit">
+        <Link href="/" className="flex items-center gap-1.5 text-sm text-[#7A9480] hover:text-[#0D9858] transition-colors w-fit">
           <ChevronLeft size={16} /> Voltar ao mapa
         </Link>
 
@@ -110,11 +136,13 @@ export default function PontoPage() {
           <div className="bg-white border border-[#D4DAD4] -mt-4 rounded-b-xl flex flex-col divide-y divide-[#D4DAD4]">
             <div className="px-4 py-3 flex flex-wrap gap-2">
             {ponto?.residuos?.map((r: any, i: number) => {
-              const tipo = typeof r === 'string' ? r : (r.tipo ?? r.nome ?? '');
-              const nome = typeof r === 'string' ? r : (r.nome ?? r.tipo ?? '');
+              const residuo = r.residuo;
+              const nome = residuo?.nome ?? 'Resíduo';
+              const tipo = residuo?.tipo ?? nome.toLowerCase();
+              const cor = residuo?.cor ?? RES_COR[tipo] ?? '#0D9858';
               return (
                 <span key={i} className="text-xs px-2.5 py-1 rounded-full font-semibold"
-                  style={{ backgroundColor: `${RES_COR[tipo]}18`, color: RES_COR[tipo] }}>
+                  style={{ backgroundColor: `${cor}18`, color: cor }}>
                   {nome}
                 </span>
               );
