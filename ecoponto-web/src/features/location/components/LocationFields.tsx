@@ -78,7 +78,7 @@ export function LocationFields({ estado, cidade, onChange, disabled }: LocationF
         onSelect={(label) => {
           const selected = estados.find((item) => formatEstadoLabel(item) === label)
           if (!selected) return
-          onChange({ estado: selected.sigla, cidade: '' })
+          onChange({ estado: selected.sigla, cidade: cidade })
         }}
       />
 

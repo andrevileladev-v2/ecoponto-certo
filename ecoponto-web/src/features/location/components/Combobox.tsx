@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-
 import { normalizarTexto } from '@/features/location/ibge'
 
 type ComboboxProps = {
@@ -22,10 +21,11 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  if (value !== confirmedValue) {
+  // Sincroniza se o valor do pai mudar externamente
+  useEffect(() => {
     setConfirmedValue(value)
     setQuery(value)
-  }
+  }, [value])
 
   function matches(option: string, term: string) {
     return normalizarTexto(option).includes(normalizarTexto(term))
@@ -36,10 +36,7 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
   }
 
   const filtered = (query.trim() ? options.filter((option) => matches(option, query)) : options).slice(0, MAX_SUGESTOES)
-  const invalid = query.trim() !== '' && !findExact(query, options) && !open
 
-  // Read via ref inside the document listener below so it always sees the latest
-  // query/options/value, instead of a stale closure from whenever the listener was attached.
   const latestRef = useRef({ query, options, value, onSelect })
   useEffect(() => {
     latestRef.current = { query, options, value, onSelect }
@@ -47,12 +44,23 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
 
   function confirmSelection() {
     const current = latestRef.current
+    if (!current.query.trim()) {
+      current.onSelect('')
+      setOpen(false)
+      return
+    }
+
     const exact = findExact(current.query, current.options)
     if (exact) {
       setQuery(exact)
+      setConfirmedValue(exact)
       current.onSelect(exact)
     } else {
-      setQuery(current.value)
+      // Mantém o que o usuário digitou em vez de apagar
+      const trimmed = current.query.trim()
+      setQuery(trimmed)
+      setConfirmedValue(trimmed)
+      current.onSelect(trimmed)
     }
     setOpen(false)
   }
@@ -65,7 +73,6 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -78,30 +85,32 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
         placeholder={loading ? 'Carregando...' : placeholder}
         onFocus={() => setOpen(true)}
         onChange={(event) => {
-          setQuery(event.target.value)
+          const val = event.target.value
+          setQuery(val)
           setOpen(true)
+          onSelect(val)
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()
             if (filtered.length === 1) {
               setQuery(filtered[0])
+              setConfirmedValue(filtered[0])
               onSelect(filtered[0])
               setOpen(false)
             } else {
               confirmSelection()
             }
           } else if (event.key === 'Escape') {
-            setQuery(value)
             setOpen(false)
           }
         }}
-        className={`rounded-lg border px-3 py-2 text-sm font-normal text-fg outline-none focus:border-accent ${
-          invalid ? 'border-red-400' : 'border-border'
-        } ${disabled ? 'bg-raised text-fg-3' : ''}`}
+        className={`rounded-lg border px-3 py-2 text-sm font-normal text-fg outline-none focus:border-accent border-border ${
+          disabled ? 'bg-raised text-fg-3' : 'bg-white'
+        }`}
       />
       {open && !disabled && filtered.length > 0 && (
-        <ul className="absolute top-full z-40 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-border bg-white shadow-lg">
+        <ul className="absolute top-full z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-border bg-white shadow-xl">
           {filtered.map((option) => (
             <li key={option}>
               <button
@@ -109,10 +118,17 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
                 onMouseDown={(event) => {
                   event.preventDefault()
                   setQuery(option)
+                  setConfirmedValue(option)
                   onSelect(option)
                   setOpen(false)
                 }}
-                className="block w-full px-3 py-2 text-left text-sm font-normal text-fg hover:bg-raised"
+                onClick={() => {
+                  setQuery(option)
+                  setConfirmedValue(option)
+                  onSelect(option)
+                  setOpen(false)
+                }}
+                className="block w-full px-3 py-2 text-left text-sm font-normal text-fg hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 {option}
               </button>
@@ -120,7 +136,6 @@ export function Combobox({ label, value, options, placeholder, disabled, loading
           ))}
         </ul>
       )}
-      {invalid && <span className="text-[11px] font-normal text-red-600">Selecione uma opção da lista.</span>}
     </div>
   )
 }
