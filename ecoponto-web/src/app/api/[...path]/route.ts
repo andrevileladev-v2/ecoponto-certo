@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND = 'http://localhost:3001/api'
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001').replace(/\/+$/, '')
+const BACKEND = API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`
 
 async function handler(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params
@@ -11,17 +12,25 @@ async function handler(request: NextRequest, { params }: { params: Promise<{ pat
   const authHeader = request.headers.get('authorization') ?? ''
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
 
-  const res = await fetch(url, {
-    method: request.method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(authHeader ? { authorization: authHeader } : {}),
-    },
-    body: hasBody ? await request.text() : undefined,
-  })
+  try {
+    const res = await fetch(url, {
+      method: request.method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
+      body: hasBody ? await request.text() : undefined,
+    })
 
-  const data = await res.json().catch(() => null)
-  return NextResponse.json(data, { status: res.status })
+    const data = await res.json().catch(() => null)
+    return NextResponse.json(data, { status: res.status })
+  } catch (err) {
+    console.error(`[Proxy Error] Falha ao conectar ao backend em ${url}:`, err)
+    return NextResponse.json(
+      { error: 'Não foi possível conectar ao servidor de API.' },
+      { status: 502 }
+    )
+  }
 }
 
 export const GET = handler

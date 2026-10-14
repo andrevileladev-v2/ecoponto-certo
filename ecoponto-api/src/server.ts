@@ -23,9 +23,9 @@ const app = Fastify({
 await app.register(cors, {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true)                          // server-to-server
-    if (origin.endsWith('.app.github.dev')) return cb(null, true) // GitHub Codespace
-    const allowed = process.env.CORS_ORIGIN
-    if (!allowed || allowed === '*') return cb(null, true)     // dev sem .env
+    if (origin.endsWith('.app.github.dev') || origin.endsWith('.netlify.app')) return cb(null, true)
+    const allowed = process.env.CORS_ORIGIN || process.env.FRONTEND_URL
+    if (!allowed || allowed === '*') return cb(null, true)     // dev ou wildcard
     if (origin === allowed) return cb(null, true)              // produção
     cb(new Error('CORS: origem não permitida'), false)
   },
