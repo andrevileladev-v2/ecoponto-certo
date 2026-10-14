@@ -1,5 +1,18 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '')
-const BASE = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`
+function getApiBase(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  if (envUrl && envUrl.startsWith('http') && !envUrl.includes('localhost')) {
+    return envUrl.replace(/\/+$/, '')
+  }
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    return 'https://ecoponto-certo.onrender.com'
+  }
+  return (envUrl ?? 'http://localhost:3001').replace(/\/+$/, '')
+}
+
+function getBaseUrl(): string {
+  const apiBase = getApiBase()
+  return apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`
+}
 
 function getToken() {
   if (typeof window === 'undefined') return null
@@ -17,7 +30,7 @@ export function clearToken() {
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
 
-  const cleanBase = BASE.replace(/\/$/, '')
+  const cleanBase = getBaseUrl().replace(/\/$/, '')
   const cleanPath = path.startsWith('/') ? path : `/${path}`
   const url = `${cleanBase}${cleanPath}`
 
