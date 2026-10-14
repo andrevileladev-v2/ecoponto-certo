@@ -31,8 +31,13 @@ export async function fetchEstados(): Promise<Estado[]> {
 }
 
 export async function fetchMunicipios(uf: string): Promise<Municipio[]> {
-  const sigla = uf.trim().toUpperCase()
+  let sigla = uf.trim().toUpperCase()
   if (!sigla) return []
+
+  if (sigla.length > 2) {
+    const estadoObj = await matchEstadoPorNome(sigla)
+    if (estadoObj) sigla = estadoObj.sigla
+  }
 
   if (!municipiosCache.has(sigla)) {
     municipiosCache.set(

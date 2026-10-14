@@ -41,6 +41,7 @@ export function LocationFields({ estado, cidade, onChange, disabled }: LocationF
         if (!active) return
         setMunicipios(lista.map((municipio) => municipio.nome))
         setMunicipiosEstado(estado)
+        setErro('')
       })
       .catch(() => {
         if (active) setErro('Não foi possível carregar a lista de cidades.')
@@ -94,7 +95,9 @@ export function LocationFields({ estado, cidade, onChange, disabled }: LocationF
         />
       </div>
 
-      {erro && <p role="alert" className="text-xs text-red-700 sm:col-span-2">{erro}</p>}
+      {erro && !loadingMunicipios && municipios.length === 0 && (
+        <p role="alert" className="text-xs text-red-700 sm:col-span-2">{erro}</p>
+      )}
     </div>
   )
 }
