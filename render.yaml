@@ -18,7 +18,6 @@ services:
       - key: DIRECT_URL
         sync: false
       - key: JWT_SECRET
-        generateValue: false
         sync: false
       - key: FRONTEND_URL
         sync: false
