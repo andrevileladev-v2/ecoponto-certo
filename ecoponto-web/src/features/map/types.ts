@@ -46,6 +46,7 @@ export type Ponto = {
   lat: number
   lng: number
   status: string
+  confiabilidade?: number
   residuos: ResiduoPonto[]
 }
 

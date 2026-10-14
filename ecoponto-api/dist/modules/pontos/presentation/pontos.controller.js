@@ -1,5 +1,35 @@
 import { prisma } from '../../../lib/prisma.js';
 import { PontosService } from '../application/pontos.service.js';
+const horarioService = new PontosService();
+function getHorarios(value) {
+    if (!value || typeof value !== 'object')
+        return undefined;
+    return value;
+}
+function getProposalData(body) {
+    const coordinate = (value) => {
+        if (typeof value === 'number')
+            return value;
+        if (typeof value === 'string' && value.trim())
+            return Number(value);
+        return Number.NaN;
+    };
+    const horarios = getHorarios(body.horarios);
+    return {
+        nome: String(body.nome ?? '').trim(),
+        descricao: typeof body.descricao === 'string' ? body.descricao.trim() || null : null,
+        endereco: String(body.endereco ?? '').trim(),
+        cidade: String(body.cidade ?? '').trim(),
+        estado: String(body.estado ?? 'ES').trim(),
+        pais: String(body.pais ?? 'Brasil').trim(),
+        lat: coordinate(body.lat),
+        lng: coordinate(body.lng),
+        telefone: typeof body.telefone === 'string' ? body.telefone.trim() || null : null,
+        site: typeof body.site === 'string' ? body.site.trim() || null : null,
+        horarios,
+        horario: horarios ? horarioService.formatHorarioResumo(horarios) : typeof body.horario === 'string' ? body.horario.trim() || null : null,
+    };
+}
 export class PontosController {
     service;
     prismaClient;
@@ -33,37 +63,133 @@ export class PontosController {
     }
     async create(req, reply) {
         const { sub } = req.user;
-        const { nome, descricao, endereco, cidade, estado, lat, lng, telefone, site, horario, residuos } = req.body;
-        const validation = this.service.validateCreate({ nome, endereco, cidade, lat, lng });
+        const dados = getProposalData(req.body);
+        const validation = this.service.validateProposal(dados);
         if (!validation.ok)
             return reply.status(400).send({ error: validation.error });
         const ponto = await this.prismaClient.ponto.create({
             data: {
-                nome,
-                descricao,
-                endereco,
-                cidade,
-                estado: estado ?? 'ES',
-                lat: Number(lat),
-                lng: Number(lng),
-                telefone,
-                site,
-                horario,
-                status: 'ATIVO',
+                ...dados,
+                status: 'PENDENTE_VERIFICACAO',
+                confiabilidade: 0.15,
                 criado_por_id: sub,
-                residuos: residuos?.length
-                    ? {
-                        create: residuos.map((id) => ({
-                            residuo_id: id,
-                            status: 'CONFIRMADO',
-                            confirmacoes: 1,
-                        })),
-                    }
-                    : undefined,
             },
-            include: { residuos: { include: { residuo: true } } },
         });
-        return reply.status(201).send(ponto);
+        const proposta = await this.prismaClient.propostaPonto.create({
+            data: {
+                tipo: 'CRIAR',
+                dados,
+                autor_id: sub,
+                ponto_id: ponto.id,
+                status: 'PENDENTE',
+            },
+        });
+        return reply.status(201).send({ ponto, proposta });
+    }
+    async listMyProposals(req, reply) {
+        const { sub } = req.user;
+        const propostas = await this.prismaClient.propostaPonto.findMany({
+            where: { autor_id: sub },
+            include: { ponto: { select: { id: true, nome: true } } },
+            orderBy: { criado_em: 'desc' },
+        });
+        return reply.send(propostas);
+    }
+    async listPendingCreationProposals(_req, reply) {
+        const propostas = await this.prismaClient.propostaPonto.findMany({
+            where: { tipo: 'CRIAR', status: 'PENDENTE' },
+            select: {
+                id: true,
+                tipo: true,
+                dados: true,
+                autor_id: true,
+                confirmacoes: true,
+                contestacoes: true,
+                criado_em: true,
+                autor: { select: { nome: true } },
+            },
+            orderBy: { criado_em: 'desc' },
+            take: 100,
+        });
+        return reply.send(propostas);
+    }
+    async listPointProposals(req, reply) {
+        const { id } = req.params;
+        const propostas = await this.prismaClient.propostaPonto.findMany({
+            where: { ponto_id: id, status: 'PENDENTE' },
+            select: {
+                id: true,
+                tipo: true,
+                dados: true,
+                autor_id: true,
+                confirmacoes: true,
+                contestacoes: true,
+                criado_em: true,
+                autor: { select: { nome: true } },
+            },
+            orderBy: { criado_em: 'desc' },
+        });
+        return reply.send(propostas);
+    }
+    async voteProposal(req, reply) {
+        const { propostaId } = req.params;
+        const { sub } = req.user;
+        const { aprova } = req.body;
+        if (typeof aprova !== 'boolean') {
+            return reply.status(400).send({ error: 'Informe se aprova a proposta' });
+        }
+        const propostaAtual = await this.prismaClient.propostaPonto.findUnique({
+            where: { id: propostaId },
+        });
+        if (!propostaAtual)
+            return reply.status(404).send({ error: 'Proposta não encontrada' });
+        if (propostaAtual.status !== 'PENDENTE') {
+            return reply.status(409).send({ error: 'Esta proposta já foi decidida' });
+        }
+        if (propostaAtual.autor_id === sub) {
+            return reply.status(403).send({ error: 'Você não pode votar na própria proposta' });
+        }
+        const result = await this.prismaClient.$transaction(async (tx) => {
+            await tx.votoPropostaPonto.upsert({
+                where: { proposta_id_usuario_id: { proposta_id: propostaId, usuario_id: sub } },
+                update: { aprova },
+                create: { proposta_id: propostaId, usuario_id: sub, aprova },
+            });
+            const votos = await tx.votoPropostaPonto.findMany({
+                where: { proposta_id: propostaId },
+                select: { aprova: true },
+            });
+            const confirmacoes = votos.filter((voto) => voto.aprova).length;
+            const contestacoes = votos.length - confirmacoes;
+            const status = this.service.resolveProposalVote(confirmacoes, contestacoes);
+            let pontoId = propostaAtual.ponto_id;
+            if (status === 'APROVADA') {
+                const dados = propostaAtual.dados;
+                if (propostaAtual.tipo === 'CRIAR') {
+                    const ponto = await tx.ponto.create({
+                        data: { ...dados, status: 'ATIVO', criado_por_id: propostaAtual.autor_id },
+                        select: { id: true },
+                    });
+                    pontoId = ponto.id;
+                }
+                else if (propostaAtual.ponto_id) {
+                    await tx.ponto.update({
+                        where: { id: propostaAtual.ponto_id },
+                        data: dados,
+                    });
+                }
+            }
+            return tx.propostaPonto.update({
+                where: { id: propostaId },
+                data: {
+                    status,
+                    confirmacoes,
+                    contestacoes,
+                    ...(pontoId && status === 'APROVADA' ? { ponto_id: pontoId } : {}),
+                },
+            });
+        });
+        return reply.send(result);
     }
     async detail(req, reply) {
         const { id } = req.params;
@@ -106,19 +232,18 @@ export class PontosController {
     }
     async update(req, reply) {
         const { id } = req.params;
-        const { sub, role } = req.user;
+        const { sub } = req.user;
         const ponto = await this.prismaClient.ponto.findUnique({ where: { id } });
         if (!ponto)
             return reply.status(404).send({ error: 'Ponto não encontrado' });
-        if (ponto.criado_por_id !== sub && role !== 'ADMIN') {
-            return reply.status(403).send({ error: 'Sem permissão' });
-        }
-        const { nome, descricao, endereco, cidade, estado, lat, lng, telefone, site, horario, status } = req.body;
-        const atualizado = await this.prismaClient.ponto.update({
-            where: { id },
-            data: { nome, descricao, endereco, cidade, estado, lat, lng, telefone, site, horario, status },
+        const dados = getProposalData(req.body);
+        const validation = this.service.validateProposal(dados);
+        if (!validation.ok)
+            return reply.status(400).send({ error: validation.error });
+        const proposta = await this.prismaClient.propostaPonto.create({
+            data: { tipo: 'EDITAR', dados, autor_id: sub, ponto_id: id },
         });
-        return reply.send(atualizado);
+        return reply.status(201).send(proposta);
     }
     async remove(req, reply) {
         const { id } = req.params;
@@ -192,7 +317,20 @@ export class PontosController {
         });
         const positivas = recentes.filter((c) => c.funcionando).length;
         const confiabilidade = recentes.length ? positivas / recentes.length : 0;
-        await this.prismaClient.ponto.update({ where: { id }, data: { confiabilidade } });
+        const novoStatus = positivas >= 2 && confiabilidade >= 0.6 ? 'ATIVO' : undefined;
+        await this.prismaClient.ponto.update({
+            where: { id },
+            data: {
+                confiabilidade,
+                ...(novoStatus ? { status: novoStatus } : {}),
+            },
+        });
+        if (novoStatus === 'ATIVO') {
+            await this.prismaClient.propostaPonto.updateMany({
+                where: { ponto_id: id, status: 'PENDENTE' },
+                data: { status: 'APROVADA', confirmacoes: positivas },
+            });
+        }
         return reply.status(201).send(confirmacao);
     }
     async save(req, reply) {

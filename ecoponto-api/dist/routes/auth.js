@@ -8,7 +8,19 @@ export async function authRoutes(app) {
         const { sub } = req.user;
         const usuario = await prisma.usuario.findUnique({
             where: { id: sub },
-            include: { empresa: true },
+            select: {
+                id: true,
+                email: true,
+                nome: true,
+                tipo: true,
+                role: true,
+                status: true,
+                cidade: true,
+                avatar_url: true,
+                mostrar_no_dashboard: true,
+                criado_em: true,
+                empresa: true,
+            },
         });
         if (!usuario)
             return reply.status(404).send({ error: 'Usuário não encontrado' });

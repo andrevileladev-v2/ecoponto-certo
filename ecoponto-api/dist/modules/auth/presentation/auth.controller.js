@@ -17,10 +17,15 @@ export class AuthController {
         if (!validation.ok) {
             return reply.status(400).send({ error: validation.error });
         }
-        const { email, nome, senha, tipo, cidade } = body;
+        const { email, nome, senha, tipo, cidade, estado, razaoSocial, cnpj, tipoAtuacao, whatsapp } = body;
         const existe = await this.prismaClient.usuario.findUnique({ where: { email } });
         if (existe)
             return reply.status(409).send({ error: 'Email já cadastrado' });
+        if (tipo === 'EMPRESA' && cnpj) {
+            const cnpjExistente = await this.prismaClient.empresa.findUnique({ where: { cnpj } });
+            if (cnpjExistente)
+                return reply.status(409).send({ error: 'CNPJ já cadastrado' });
+        }
         const usuario = await this.prismaClient.usuario.create({
             data: {
                 email,
@@ -28,8 +33,33 @@ export class AuthController {
                 nome,
                 tipo: tipo ?? 'PF',
                 cidade,
+                estado,
+                ...(tipo === 'EMPRESA'
+                    ? {
+                        empresa: {
+                            create: {
+                                razao_social: razaoSocial,
+                                cnpj: cnpj || null,
+                                whatsapp: whatsapp || null,
+                                tipo_atuacao: tipoAtuacao,
+                            },
+                        },
+                    }
+                    : {}),
             },
-            select: { id: true, email: true, nome: true, tipo: true, role: true, cidade: true, avatar_url: true, criado_em: true },
+            select: {
+                id: true,
+                email: true,
+                nome: true,
+                tipo: true,
+                role: true,
+                cidade: true,
+                estado: true,
+                avatar_url: true,
+                mostrar_no_dashboard: true,
+                criado_em: true,
+                empresa: true,
+            },
         });
         const jwtSigner = this.getJwtSigner(req);
         if (!jwtSigner)

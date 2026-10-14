@@ -1,8 +1,12 @@
 import { PontosController } from '../modules/pontos/presentation/pontos.controller.js';
 const pontosController = new PontosController();
 export async function pontosRoutes(app) {
+    app.get('/propostas', async (req, reply) => pontosController.listPendingCreationProposals(req, reply));
+    app.get('/propostas/minhas', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.listMyProposals(req, reply));
+    app.post('/propostas/:propostaId/votar', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.voteProposal(req, reply));
     app.get('/', async (req, reply) => pontosController.list(req, reply));
     app.post('/', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.create(req, reply));
+    app.get('/:id/propostas', async (req, reply) => pontosController.listPointProposals(req, reply));
     app.get('/:id/entregas', async (req, reply) => pontosController.listEntregas(req, reply));
     app.get('/:id', async (req, reply) => pontosController.detail(req, reply));
     app.put('/:id', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.update(req, reply));

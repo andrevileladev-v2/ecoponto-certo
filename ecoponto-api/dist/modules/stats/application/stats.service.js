@@ -1,4 +1,12 @@
 export class StatsService {
+    buildDateFilter(period, now = new Date()) {
+        if (period === 'all')
+            return undefined;
+        const start = period === 'year'
+            ? new Date(Date.UTC(now.getUTCFullYear(), 0, 1))
+            : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        return { gte: start, lte: now };
+    }
     buildResiduoStats(groupBy) {
         return groupBy
             .map((item) => ({

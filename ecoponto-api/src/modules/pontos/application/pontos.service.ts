@@ -29,7 +29,7 @@ export class PontosService {
     if (status) {
       where.status = status
     } else {
-      where.status = 'ATIVO'
+      where.status = { in: ['ATIVO', 'PENDENTE_VERIFICACAO'] }
     }
 
     if (q) {

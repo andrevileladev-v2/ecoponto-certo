@@ -37,6 +37,7 @@ test('updateProfile salva os dados editáveis e retorna somente campos públicos
                     role: 'USER',
                     cidade: 'Vitória',
                     avatar_url: 'https://example.com/avatar.png',
+                    mostrar_no_dashboard: false,
                 };
             },
         },
@@ -50,12 +51,15 @@ test('updateProfile salva os dados editáveis e retorna somente campos públicos
             email: ' ana@example.com ',
             cidade: ' Vitória ',
             avatar_url: ' https://example.com/avatar.png ',
+            mostrar_no_dashboard: false,
         },
     }, reply);
     assert.equal(updateArgs.data.nome, 'Ana');
     assert.equal(updateArgs.data.email, 'ana@example.com');
     assert.equal(updateArgs.data.cidade, 'Vitória');
     assert.equal(updateArgs.data.avatar_url, 'https://example.com/avatar.png');
+    assert.equal(updateArgs.data.mostrar_no_dashboard, false);
+    assert.equal(result[0].payload.mostrar_no_dashboard, false);
     assert.equal('senha_hash' in result[0].payload, false);
 });
 test('updateProfile exige e valida a senha atual para alterá-la', async () => {

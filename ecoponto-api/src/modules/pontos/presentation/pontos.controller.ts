@@ -76,11 +76,26 @@ export class PontosController {
     const validation = this.service.validateProposal(dados)
     if (!validation.ok) return reply.status(400).send({ error: validation.error })
 
-    const proposta = await this.prismaClient.propostaPonto.create({
-      data: { tipo: 'CRIAR', dados, autor_id: sub },
+    const ponto = await this.prismaClient.ponto.create({
+      data: {
+        ...dados,
+        status: 'PENDENTE_VERIFICACAO',
+        confiabilidade: 0.15,
+        criado_por_id: sub,
+      },
     })
 
-    return reply.status(201).send(proposta)
+    const proposta = await this.prismaClient.propostaPonto.create({
+      data: {
+        tipo: 'CRIAR',
+        dados,
+        autor_id: sub,
+        ponto_id: ponto.id,
+        status: 'PENDENTE',
+      },
+    })
+
+    return reply.status(201).send({ ponto, proposta })
   }
 
   async listMyProposals(req: FastifyRequest, reply: FastifyReply) {
@@ -340,8 +355,22 @@ export class PontosController {
 
     const positivas = recentes.filter((c) => c.funcionando).length
     const confiabilidade = recentes.length ? positivas / recentes.length : 0
+    const novoStatus = positivas >= 2 && confiabilidade >= 0.6 ? 'ATIVO' : undefined
 
-    await this.prismaClient.ponto.update({ where: { id }, data: { confiabilidade } })
+    await this.prismaClient.ponto.update({
+      where: { id },
+      data: {
+        confiabilidade,
+        ...(novoStatus ? { status: novoStatus } : {}),
+      },
+    })
+
+    if (novoStatus === 'ATIVO') {
+      await this.prismaClient.propostaPonto.updateMany({
+        where: { ponto_id: id, status: 'PENDENTE' },
+        data: { status: 'APROVADA', confirmacoes: positivas },
+      })
+    }
 
     return reply.status(201).send(confirmacao)
   }

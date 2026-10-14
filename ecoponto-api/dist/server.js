@@ -20,11 +20,11 @@ await app.register(cors, {
     origin: (origin, cb) => {
         if (!origin)
             return cb(null, true); // server-to-server
-        if (origin.endsWith('.app.github.dev'))
-            return cb(null, true); // GitHub Codespace
-        const allowed = process.env.CORS_ORIGIN;
+        if (origin.endsWith('.app.github.dev') || origin.endsWith('.netlify.app'))
+            return cb(null, true);
+        const allowed = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
         if (!allowed || allowed === '*')
-            return cb(null, true); // dev sem .env
+            return cb(null, true); // dev ou wildcard
         if (origin === allowed)
             return cb(null, true); // produção
         cb(new Error('CORS: origem não permitida'), false);
@@ -42,7 +42,7 @@ await app.register(routes, { prefix: '/api' });
 app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
 // ── Start ────────────────────────────────────────────────────────────────────
 const port = Number(process.env.PORT) || 3001;
-const host = process.env.HOST ?? '127.0.0.1';
+const host = process.env.HOST ?? '0.0.0.0';
 try {
     await app.listen({ port, host });
     console.log(`API rodando em http://${host}:${port}`);

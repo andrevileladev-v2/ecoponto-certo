@@ -20,7 +20,9 @@ export class UsuariosController {
                 role: true,
                 status: true,
                 cidade: true,
+                estado: true,
                 avatar_url: true,
+                mostrar_no_dashboard: true,
                 criado_em: true,
                 empresa: true,
                 _count: {
@@ -38,12 +40,23 @@ export class UsuariosController {
     }
     async updateProfile(req, reply) {
         const { sub } = req.user;
-        const { nome, cidade, email, avatar_url, senha_atual, senha_nova } = req.body;
+        const { nome, cidade, estado, email, avatar_url, mostrar_no_dashboard, senha_atual, senha_nova } = req.body;
         if (nome !== undefined && !nome.trim()) {
             return reply.status(400).send({ error: 'Nome não pode ficar vazio' });
         }
         if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
             return reply.status(400).send({ error: 'Email inválido' });
+        }
+        if (avatar_url?.trim()) {
+            try {
+                const avatar = new URL(avatar_url.trim());
+                if (!['http:', 'https:'].includes(avatar.protocol)) {
+                    return reply.status(400).send({ error: 'A foto deve usar um endereço HTTP ou HTTPS' });
+                }
+            }
+            catch {
+                return reply.status(400).send({ error: 'Endereço da foto inválido' });
+            }
         }
         if (senha_atual && !senha_nova) {
             return reply.status(400).send({ error: 'Informe a nova senha' });
@@ -78,11 +91,25 @@ export class UsuariosController {
             data: {
                 nome: nome?.trim(),
                 cidade: cidade?.trim() || null,
+                estado: estado?.trim() || null,
                 email: email?.trim(),
                 avatar_url: avatar_url?.trim() || null,
+                mostrar_no_dashboard,
                 senha_hash: senha_nova ? await bcrypt.hash(senha_nova, 12) : undefined,
             },
-            select: { id: true, email: true, nome: true, tipo: true, role: true, cidade: true, avatar_url: true, criado_em: true },
+            select: {
+                id: true,
+                email: true,
+                nome: true,
+                tipo: true,
+                role: true,
+                status: true,
+                cidade: true,
+                estado: true,
+                avatar_url: true,
+                mostrar_no_dashboard: true,
+                criado_em: true,
+            },
         });
         return reply.send(usuario);
     }

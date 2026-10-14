@@ -30,11 +30,13 @@ export default function MapClient() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null)
 
   const [selected, setSelected] = useState<Ponto | null>(null)
   const { savedPointIds, pendingPointIds, error: savedPointsError, toggleSavedPoint } = useSavedPoints(user)
   const { search, setSearch, filtros, toggleFiltro, pontos, residuoOpts, loading, refresh } = useMapPoints()
   const [addingPoint, setAddingPoint] = useState(false)
+  const [isAddingPointModalOpen, setIsAddingPointModalOpen] = useState(false)
   const [proposalCoordinates, setProposalCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const [editingPoint, setEditingPoint] = useState<Ponto | null>(null)
   const [myProposals, setMyProposals] = useState<PropostaPonto[]>([])
@@ -176,7 +178,21 @@ export default function MapClient() {
     if (!requireLogin()) return
     setSelected(null)
     setProposalNotice('')
-    setAddingPoint(true)
+    setProposalCoordinates(null)
+    setEditingPoint(null)
+    setIsAddingPointModalOpen(true)
+  }
+
+  const confirmPontoExistence = async (pontoId: string) => {
+    if (!requireLogin()) return
+    try {
+      await api.post(`/pontos/${pontoId}/confirmar`, { funcionando: true, observacao: 'Confirmado via mapa' })
+      setProposalNotice('Obrigado! Sua confirmação ajudou a aumentar a confiabilidade deste ponto.')
+      refresh()
+    } catch (err) {
+      console.error('Erro ao confirmar ponto:', err)
+      setProposalNotice(err instanceof Error ? err.message : 'Não foi possível confirmar o ponto.')
+    }
   }
 
   const voteOnProposal = async (proposalId: string, aprova: boolean) => {
@@ -200,7 +216,8 @@ export default function MapClient() {
   const handleProposalSubmitted = async () => {
     setProposalCoordinates(null)
     setEditingPoint(null)
-    setProposalNotice('Sugestão enviada. Ela ficará visível para você e só será publicada após votação da comunidade.')
+    setIsAddingPointModalOpen(false)
+    setProposalNotice('Ponto cadastrado com sucesso! Ele já está visível no mapa em validação comunitária.')
     refresh()
     try {
       setMyProposals(await api.get<PropostaPonto[]>('/pontos/propostas/minhas'))
@@ -210,6 +227,32 @@ export default function MapClient() {
     }
   }
 
+  // Marcador visual "Você está aqui" com ponto azul pulsante
+  useEffect(() => {
+    const map = mapInst.current
+    if (!map || !userLocGranted) {
+      userMarkerRef.current?.remove()
+      userMarkerRef.current = null
+      return
+    }
+
+    if (!userMarkerRef.current) {
+      const el = document.createElement('div')
+      el.className = 'user-location-marker'
+      el.style.cssText = 'position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:20;'
+      el.title = 'Você está aqui'
+      el.innerHTML = `
+        <div style="position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(37,99,235,0.3);animation:ping 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+        <div style="position:relative;width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid white;box-shadow:0 0 10px rgba(37,99,235,0.7);"></div>
+      `
+      userMarkerRef.current = new maplibregl.Marker({ element: el })
+        .setLngLat([userLoc.lng, userLoc.lat])
+        .addTo(map)
+    } else {
+      userMarkerRef.current.setLngLat([userLoc.lng, userLoc.lat])
+    }
+  }, [userLoc, userLocGranted])
+
   useEffect(() => {
     const map = mapInst.current
     if (!map) return
@@ -218,8 +261,15 @@ export default function MapClient() {
 
     filteredPontos.forEach((p) => {
       const cor = p.residuos[0]?.residuo.cor ?? '#0D9858'
+      const isPending = p.status === 'PENDENTE_VERIFICACAO' || (p.confiabilidade !== undefined && p.confiabilidade < 0.3)
       const el = document.createElement('div')
-      el.style.cssText = `width:26px;height:26px;border-radius:50%;background:${cor};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer`
+      el.className = 'point-marker cursor-pointer'
+      el.style.cssText = `position:relative;width:28px;height:28px;border-radius:50%;background:${cor};border:3px solid ${
+        isPending ? '#f59e0b' : 'white'
+      };box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;`
+      if (isPending) {
+        el.innerHTML = `<span style="font-size:12px;line-height:1;" title="Em validação comunitária (baixa recomendação)">⚠️</span>`
+      }
       el.addEventListener('click', (event) => {
         event.stopPropagation()
         setSelected(p)
@@ -407,7 +457,14 @@ export default function MapClient() {
             >
               <div className="w-1 shrink-0" style={{ backgroundColor: p.residuos[0]?.residuo.cor ?? '#0D9858' }} />
               <div className="px-3 py-3 flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#1A2E1A] truncate">{p.nome}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-[#1A2E1A] truncate">{p.nome}</p>
+                  {(p.status === 'PENDENTE_VERIFICACAO' || (p.confiabilidade !== undefined && p.confiabilidade < 0.3)) && (
+                    <span className="shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded" title="Em validação comunitária">
+                      ⚠️ Em validação
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-fg-3 truncate">{p.endereco}, {p.cidade}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {p.residuos.slice(0, 3).map((r) => (
@@ -433,7 +490,7 @@ export default function MapClient() {
                   <p className="mt-0.5 text-xs text-fg-3">
                     {proposal.tipo === 'CRIAR' ? 'Novo ponto' : `Edição de ${proposal.ponto?.nome ?? 'ponto'}`}
                     {' · '}
-                    {proposal.status === 'PENDENTE' ? 'Aguardando votação' : proposal.status === 'APROVADA' ? 'Aprovada' : 'Não aprovada'}
+                    {proposal.status === 'PENDENTE' ? 'Em validação comunitária' : proposal.status === 'APROVADA' ? 'Aprovada' : 'Não aprovada'}
                   </p>
                   <p className="mt-1 truncate text-xs text-fg-3">
                     {proposal.dados.endereco} · {proposal.dados.cidade}, {proposal.dados.estado}, {proposal.dados.pais}
@@ -443,7 +500,7 @@ export default function MapClient() {
                     {proposal.confirmacoes} aprovaram · {proposal.contestacoes} não aprovaram
                   </p>
                   {proposal.status === 'PENDENTE' && (
-                    <p className="mt-1 text-[10px] text-amber-800">O mapa público só muda depois da aprovação.</p>
+                    <p className="mt-1 text-[10px] text-amber-800">⚠️ Já visível no mapa com recomendação em validação até atingir confirmações da comunidade.</p>
                   )}
                 </div>
               ))}
@@ -539,6 +596,26 @@ export default function MapClient() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {(selected.status === 'PENDENTE_VERIFICACAO' || (selected.confiabilidade !== undefined && selected.confiabilidade < 0.3)) && (
+              <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <span>⚠️</span>
+                  <span>Em validação comunitária · Recomendação baixa</span>
+                </div>
+                <p className="mt-1 text-[11px] text-amber-800">
+                  Este local foi adicionado recentemente e precisa de votos da comunidade para ser verificado.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void confirmPontoExistence(selected.id)}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold py-1.5 px-3 text-xs transition-colors shadow-xs"
+                >
+                  👍 Confirmar que este ponto existe
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -635,13 +712,16 @@ export default function MapClient() {
           </div>
         )}
 
-        {(proposalCoordinates || editingPoint) && (
+        {(isAddingPointModalOpen || proposalCoordinates || editingPoint) && (
           <MapPointProposalForm
             point={editingPoint ?? undefined}
-            coordinates={proposalCoordinates ?? undefined}
+            coordinates={proposalCoordinates ?? (userLocGranted ? userLoc : (selectedCity ? { lat: selectedCity.lat, lng: selectedCity.lng } : undefined))}
+            initialCity={selectedCity?.city || user?.cidade || 'Guarapari'}
+            initialState={selectedCity?.state || user?.estado || 'ES'}
             onCancel={() => {
               setProposalCoordinates(null)
               setEditingPoint(null)
+              setIsAddingPointModalOpen(false)
             }}
             onSubmitted={() => void handleProposalSubmitted()}
           />

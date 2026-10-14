@@ -1,3 +1,5 @@
+import { DIAS_SEMANA, DIA_SEMANA_LABEL } from '../domain/ponto.types.js';
+const HORA_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 export class PontosService {
     buildWhereClause(input) {
         const { lat, lng, raio, residuos, cidade, status, q } = input;
@@ -9,7 +11,7 @@ export class PontosService {
             where.status = status;
         }
         else {
-            where.status = 'ATIVO';
+            where.status = { in: ['ATIVO', 'PENDENTE_VERIFICACAO'] };
         }
         if (q) {
             where.nome = { contains: q, mode: 'insensitive' };
@@ -39,6 +41,71 @@ export class PontosService {
             return { ok: false, error: 'nome, endereco, cidade, lat e lng são obrigatórios' };
         }
         return { ok: true };
+    }
+    validateProposal(input) {
+        if (!input.nome?.trim() || !input.endereco?.trim() || !input.cidade?.trim() || !input.estado?.trim() || !input.pais?.trim()) {
+            return { ok: false, error: 'nome, endereço, cidade, estado e país são obrigatórios' };
+        }
+        if (typeof input.lat !== 'number'
+            || typeof input.lng !== 'number'
+            || !Number.isFinite(input.lat)
+            || !Number.isFinite(input.lng)
+            || input.lat < -90 || input.lat > 90
+            || input.lng < -180 || input.lng > 180) {
+            return { ok: false, error: 'Latitude ou longitude inválida' };
+        }
+        if (input.horarios && !this.validateHorarios(input.horarios).ok) {
+            return this.validateHorarios(input.horarios);
+        }
+        return { ok: true };
+    }
+    validateHorarios(horarios) {
+        for (const dia of DIAS_SEMANA) {
+            const horarioDia = horarios[dia];
+            if (!horarioDia || typeof horarioDia.ativo !== 'boolean') {
+                return { ok: false, error: `Horário inválido para o dia "${dia}"` };
+            }
+            if (!horarioDia.ativo)
+                continue;
+            if (!HORA_REGEX.test(horarioDia.abertura) || !HORA_REGEX.test(horarioDia.fechamento)) {
+                return { ok: false, error: `Horário inválido para o dia "${dia}"` };
+            }
+            if (horarioDia.abertura >= horarioDia.fechamento) {
+                return { ok: false, error: `O horário de abertura deve ser antes do fechamento (${DIA_SEMANA_LABEL[dia]})` };
+            }
+        }
+        return { ok: true };
+    }
+    formatHorarioResumo(horarios) {
+        if (!horarios)
+            return null;
+        const grupos = [];
+        for (const dia of DIAS_SEMANA) {
+            const horarioDia = horarios[dia];
+            const texto = horarioDia?.ativo ? `${horarioDia.abertura}–${horarioDia.fechamento}` : 'Fechado';
+            const ultimo = grupos[grupos.length - 1];
+            if (ultimo && ultimo.texto === texto) {
+                ultimo.dias.push(dia);
+            }
+            else {
+                grupos.push({ dias: [dia], texto });
+            }
+        }
+        return grupos
+            .filter((grupo) => grupo.texto !== 'Fechado')
+            .map((grupo) => {
+            const label = grupo.dias.length > 1
+                ? `${DIA_SEMANA_LABEL[grupo.dias[0]]}–${DIA_SEMANA_LABEL[grupo.dias[grupo.dias.length - 1]]}`
+                : DIA_SEMANA_LABEL[grupo.dias[0]];
+            return `${label} ${grupo.texto}`;
+        })
+            .join(', ') || 'Fechado todos os dias';
+    }
+    resolveProposalVote(confirmacoes, contestacoes) {
+        const total = confirmacoes + contestacoes;
+        if (total < 3)
+            return 'PENDENTE';
+        return confirmacoes / total >= 0.7 ? 'APROVADA' : 'REJEITADA';
     }
     haversine(lat1, lng1, lat2, lng2) {
         const R = 6371;

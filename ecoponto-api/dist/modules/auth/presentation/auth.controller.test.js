@@ -11,14 +11,18 @@ const fakePrisma = {
             tipo: 'PF',
             role: 'USER',
             cidade: 'Vitória',
+            estado: 'ES',
             criado_em: new Date(),
         }),
+    },
+    empresa: {
+        findUnique: async () => null,
     },
 };
 test('controller register devolve 201 quando payload válido', async () => {
     const controller = new AuthController(undefined, fakePrisma);
     const req = {
-        body: { email: 'ana@email.com', nome: 'Ana', senha: '123', tipo: 'PF', cidade: 'Vitória' },
+        body: { email: 'ana@email.com', nome: 'Ana', senha: 'senha-segura', tipo: 'PF', cidade: 'Vitória', estado: 'ES' },
         server: { jwt: { sign: (payload) => JSON.stringify(payload) } },
     };
     const sent = [];
@@ -34,18 +38,20 @@ test('controller register devolve 201 quando payload válido', async () => {
 test('controller register usa o jwt do server quando request.jwt não está disponível', async () => {
     const controller = new AuthController(new (await import('../application/auth.service.js')).AuthService(), fakePrisma);
     const req = {
-        body: { email: 'bia@email.com', nome: 'Bia', senha: '123', tipo: 'PF', cidade: 'Vitória' },
+        body: { email: 'bia@email.com', nome: 'Bia', senha: 'senha-segura', tipo: 'PF', cidade: 'Vitória', estado: 'ES' },
         server: { jwt: { sign: () => 'signed-token' } },
     };
+    const sent = [];
     const reply = {
         status(code) {
             return {
                 send(payload) {
-                    return { code, payload };
+                    sent.push({ code, payload });
+                    return payload;
                 },
             };
         },
     };
-    const result = await controller.register(req, reply);
-    assert.equal(result.payload.token, 'signed-token');
+    await controller.register(req, reply);
+    assert.equal(sent[0].payload.token, 'signed-token');
 });
