@@ -1,0 +1,22 @@
+[build]
+  command = "npm install && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Variáveis de ambiente de produção
+# Configure no painel do Netlify: Site Settings → Environment Variables
+# NEXT_PUBLIC_API_URL         = https://ecoponto-api.onrender.com
+# NEXT_PUBLIC_SUPABASE_URL    = https://xxxx.supabase.co
+# NEXT_PUBLIC_SUPABASE_ANON_KEY = sua-chave-anonima
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
