@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+@source "../**/*.{tsx,ts,jsx,js}";
+
+@theme {
+  --font-sans: "Space Grotesk", sans-serif;
+  --color-accent: #0D9858;
+  --color-acc-bg: #E8F5ED;
+  --color-border: #D4DAD4;
+  --color-fg: #0F1C12;
+  --color-fg-2: #3D5444;
+  --color-fg-3: #7A9480;
+  --color-surface: #FFFFFF;
+  --color-raised: #F7F8F7;
+  --color-bg: #EFF2EF;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
