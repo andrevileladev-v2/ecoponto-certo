@@ -7,7 +7,6 @@ services:
     plan: free
     buildCommand: npm install && npm run build && npx prisma generate
     startCommand: npx prisma migrate deploy && node dist/server.js
-    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
