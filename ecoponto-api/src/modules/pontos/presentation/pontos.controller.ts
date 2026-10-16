@@ -10,6 +10,12 @@ function getHorarios(value: unknown): HorarioSemana | undefined {
   return value as HorarioSemana
 }
 
+function getResiduoIds(body: Record<string, unknown>): string[] {
+  const raw = body.residuo_ids
+  if (!Array.isArray(raw)) return []
+  return [...new Set(raw.filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+}
+
 function getProposalData(body: Record<string, unknown>): ProposedPointData {
   const coordinate = (value: unknown) => {
     if (typeof value === 'number') return value
@@ -76,6 +82,8 @@ export class PontosController {
     const validation = this.service.validateProposal(dados)
     if (!validation.ok) return reply.status(400).send({ error: validation.error })
 
+    const residuoIds = getResiduoIds(req.body as Record<string, unknown>)
+
     const ponto = await this.prismaClient.ponto.create({
       data: {
         ...dados,
@@ -84,6 +92,15 @@ export class PontosController {
         criado_por_id: sub,
       },
     })
+
+    if (residuoIds.length > 0) {
+      // Cada tipo de resíduo entra como sua própria proposta (status PENDENTE),
+      // com confiança calculada a partir das confirmações/contestações da comunidade.
+      await this.prismaClient.pontoResiduo.createMany({
+        data: residuoIds.map((residuo_id) => ({ ponto_id: ponto.id, residuo_id })),
+        skipDuplicates: true,
+      })
+    }
 
     const proposta = await this.prismaClient.propostaPonto.create({
       data: {
@@ -106,6 +123,42 @@ export class PontosController {
       orderBy: { criado_em: 'desc' },
     })
     return reply.send(propostas)
+  }
+
+  async cancelProposal(req: FastifyRequest, reply: FastifyReply) {
+    const { propostaId } = req.params as any
+    const { sub } = req.user as any
+
+    const proposta = await this.prismaClient.propostaPonto.findUnique({ where: { id: propostaId } })
+    if (!proposta) return reply.status(404).send({ error: 'Proposta não encontrada' })
+    if (proposta.autor_id !== sub) {
+      return reply.status(403).send({ error: 'Você só pode cancelar suas próprias sugestões' })
+    }
+    if (proposta.status !== 'PENDENTE') {
+      return reply.status(409).send({ error: 'Esta proposta já foi decidida e não pode mais ser cancelada' })
+    }
+    if (proposta.confirmacoes + proposta.contestacoes > 0) {
+      return reply.status(409).send({ error: 'Esta sugestão já recebeu votos da comunidade e não pode mais ser cancelada' })
+    }
+
+    if (proposta.tipo === 'CRIAR' && proposta.ponto_id) {
+      const ponto = await this.prismaClient.ponto.findUnique({
+        where: { id: proposta.ponto_id },
+        select: {
+          _count: { select: { mensagens: true, confirmacoes: true, entregas: true, salvos: true, denuncias: true } },
+        },
+      })
+      const temAtividade = ponto ? Object.values(ponto._count).some((count) => count > 0) : false
+      if (temAtividade) {
+        return reply.status(409).send({ error: 'Este ponto já tem atividade da comunidade e não pode mais ser cancelado' })
+      }
+      // O ponto só existe por causa desta proposta: ao removê-lo, a proposta é apagada em cascata.
+      await this.prismaClient.ponto.delete({ where: { id: proposta.ponto_id } })
+    } else {
+      await this.prismaClient.propostaPonto.delete({ where: { id: propostaId } })
+    }
+
+    return reply.status(204).send()
   }
 
   async listPendingCreationProposals(_req: FastifyRequest, reply: FastifyReply) {

@@ -195,6 +195,19 @@ export default function MapClient() {
     }
   }
 
+  const cancelProposal = async (proposalId: string) => {
+    if (!window.confirm('Cancelar esta sugestão? Isso não pode ser desfeito.')) return
+    try {
+      await api.delete(`/pontos/propostas/${proposalId}`)
+      setMyProposals((current) => current.filter((proposal) => proposal.id !== proposalId))
+      setCommunityProposals((current) => current.filter((proposal) => proposal.id !== proposalId))
+      refresh()
+    } catch (error) {
+      console.error('Erro ao cancelar proposta de ponto:', error)
+      setProposalNotice(error instanceof Error ? error.message : 'Não foi possível cancelar esta sugestão.')
+    }
+  }
+
   const voteOnProposal = async (proposalId: string, aprova: boolean) => {
     try {
       await api.post(`/pontos/propostas/${proposalId}/votar`, { aprova })
@@ -500,7 +513,18 @@ export default function MapClient() {
                     {proposal.confirmacoes} aprovaram · {proposal.contestacoes} não aprovaram
                   </p>
                   {proposal.status === 'PENDENTE' && (
-                    <p className="mt-1 text-[10px] text-amber-800">⚠️ Já visível no mapa com recomendação em validação até atingir confirmações da comunidade.</p>
+                    <>
+                      <p className="mt-1 text-[10px] text-amber-800">⚠️ Já visível no mapa com recomendação em validação até atingir confirmações da comunidade.</p>
+                      {proposal.confirmacoes === 0 && proposal.contestacoes === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void cancelProposal(proposal.id)}
+                          className="mt-2 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                        >
+                          Cancelar sugestão
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ))}

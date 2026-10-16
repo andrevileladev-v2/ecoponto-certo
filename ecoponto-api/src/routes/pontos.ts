@@ -7,6 +7,7 @@ export async function pontosRoutes(app: FastifyInstance) {
   app.get('/propostas', async (req, reply) => pontosController.listPendingCreationProposals(req, reply))
   app.get('/propostas/minhas', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.listMyProposals(req, reply))
   app.post('/propostas/:propostaId/votar', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.voteProposal(req, reply))
+  app.delete('/propostas/:propostaId', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.cancelProposal(req, reply))
   app.get('/', async (req, reply) => pontosController.list(req, reply))
   app.post('/', { preHandler: [app.authenticate] }, async (req, reply) => pontosController.create(req, reply))
   app.get('/:id/propostas', async (req, reply) => pontosController.listPointProposals(req, reply))

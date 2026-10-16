@@ -8,9 +8,16 @@ import { MapPin, Search, X, AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { matchEstadoPorNome, matchMunicipio } from '@/features/location/ibge'
 import { LocationFields } from '@/features/location/components/LocationFields'
+import { fetchResiduoOptions } from '@/features/map/api'
 import { HorarioEditor } from '@/features/map/components/HorarioEditor'
 import { criarHorarioSemanaVazio, formatHorarioResumo, validarHorarios } from '@/features/map/horario'
-import type { HorarioSemana, Ponto } from '@/features/map/types'
+import type { HorarioSemana, Ponto, ResiduoOpt } from '@/features/map/types'
+
+const RESIDUO_STATUS_LABEL: Record<string, string> = {
+  CONFIRMADO: 'Confirmado pela comunidade',
+  CONTESTADO: 'Contestado pela comunidade',
+  PENDENTE: 'Em validação',
+}
 
 type MapPointProposalFormProps = {
   point?: Ponto
@@ -52,6 +59,24 @@ export function MapPointProposalForm({
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const jaAceitos = point?.residuos ?? []
+  const jaAceitosIds = new Set(jaAceitos.map((item) => item.residuo_id))
+  const [residuoOpts, setResiduoOpts] = useState<ResiduoOpt[]>([])
+  const [novosResiduoIds, setNovosResiduoIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetchResiduoOptions().then(setResiduoOpts).catch(() => setResiduoOpts([]))
+  }, [])
+
+  function toggleResiduo(id: string) {
+    setNovosResiduoIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   // Mini-mapa interativo
   const miniMapContainerRef = useRef<HTMLDivElement>(null)
@@ -286,8 +311,11 @@ export function MapPointProposalForm({
 
       if (point?.id) {
         await api.put(`/pontos/${point.id}`, payload)
+        await Promise.all(
+          [...novosResiduoIds].map((residuo_id) => api.post(`/pontos/${point.id}/residuos`, { residuo_id })),
+        )
       } else {
-        await api.post('/pontos', payload)
+        await api.post('/pontos', { ...payload, residuo_ids: [...novosResiduoIds] })
       }
 
       onSubmitted()
@@ -437,6 +465,63 @@ export function MapPointProposalForm({
           {/* Horários */}
           <div className="border-t border-border pt-4">
             <HorarioEditor value={horarios} onChange={setHorarios} />
+          </div>
+
+          {/* Tipos de resíduo aceitos */}
+          <div className="border-t border-border pt-4 space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-fg">Tipos de resíduo aceitos</h3>
+            <p className="text-xs text-fg-3">
+              Cada material entra em validação separada: quanto mais pessoas confirmarem que
+              conseguiram entregar aquele item ali, maior a confiança. Itens que ninguém confirmou
+              ou que foram marcados como &quot;não aceito&quot; ficam com confiança baixa.
+            </p>
+
+            {jaAceitos.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {jaAceitos.map((item) => (
+                  <span
+                    key={item.id}
+                    title={RESIDUO_STATUS_LABEL[item.status] ?? item.status}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-raised px-2.5 py-1 text-xs font-medium text-fg-2"
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.residuo.cor }} />
+                    {item.residuo.nome}
+                    <span className="text-[10px] text-fg-3">
+                      · {RESIDUO_STATUS_LABEL[item.status] ?? item.status}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-1.5">
+              {residuoOpts
+                .filter((opt) => !jaAceitosIds.has(opt.id))
+                .map((opt) => {
+                  const selecionado = novosResiduoIds.has(opt.id)
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => toggleResiduo(opt.id)}
+                      aria-pressed={selecionado}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        selecionado
+                          ? 'border-accent bg-acc-bg text-accent'
+                          : 'border-border text-fg-2 hover:bg-raised'
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: opt.cor }} />
+                      {opt.nome}
+                    </button>
+                  )
+                })}
+            </div>
+            {jaAceitos.length === 0 && novosResiduoIds.size === 0 && (
+              <p className="text-[11px] text-amber-700">
+                Nenhum tipo selecionado ainda. Marque o que esse ponto aceita — a comunidade confirma depois.
+              </p>
+            )}
           </div>
 
           {/* Informações adicionais (Telefone, Site, Descrição) */}
